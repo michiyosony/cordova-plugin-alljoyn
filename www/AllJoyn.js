@@ -39,7 +39,26 @@ var wrapMsgInfoReceivingCallback = function (callback) {
 var AllJoyn = {
     connect: function (success, error) {
         var successCallback = function () {
+            // We have successfully connected. So register a listener for connection errors
+            var connectionErrorListeners = [];
+            var onConnectionError = function (connectionError) {
+                connectedBus = null;
+                connectionErrorListeners.forEach(function (errorListener) {
+                    errorListener(connectionError);
+                });
+            };
+
+            exec(onConnectionError, function () {}, 'AllJoyn', 'addConnectionErrorListener', [onConnectionError]);
+
             var bus = {
+                addConnectionErrorListener: function (listener) {
+                    connectionErrorListeners.push(listener);
+                },
+                removeConnectionErrorListener: function (listener) {
+                    connectionErrorListeners = connectionErrorListeners.filter(function (registeredListener) {
+                        return registeredListener !== listener;
+                    });
+                },
                 addListener: function (indexList, responseType, listener) {
                     // We are passing the listener function to the exec call as its success callback, but in this case,
                     // it is expected that the callback can be called multiple times. The error callback is passed just because
@@ -179,11 +198,11 @@ var AllJoyn = {
                     exec(success, error, 'AllJoyn', 'stopAdvertisingName', [name, port]);
                 },
                 /*
-                var service = {
-                name: 'name.of.the.service',
-                port: 12
-                };
-                */
+                 var service = {
+                 name: 'name.of.the.service',
+                 port: 12
+                 };
+                 */
                 joinSession: function (success, error, service) {
                     var successCallback = function (msg) {
                         var sessionId = msg.arguments[0];
